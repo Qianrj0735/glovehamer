@@ -1,0 +1,3 @@
+# @package _global_
+data_dir:
+  - data_dir: /nfs1/factorworld_dataset/dataset_hand_20250713

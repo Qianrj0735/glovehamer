@@ -1,0 +1,100 @@
+# @package _global_
+
+# specify here default configuration
+# order of defaults determines the order in which configs are merged
+defaults:
+  - _self_
+  - data: lora.yaml
+  # - model: hamer_vit_transformer.yaml
+  - trainer: gpu.yaml
+  - paths: default.yaml
+  - extras: default.yaml
+  # - logger: tensorboard.yaml
+  - hydra: default.yaml
+  - experiment: hamer_vit_transformer.yaml
+# task name, determines output directory path
+task_name: "hamer_lora_train"
+
+# tags to help you identify your experiments
+# you can overwrite this in experiment configs
+# overwrite from command line with `python train_lora.py tags="[first_tag, second_tag]"`
+tags: ["lora", "hamer", "fine_tune"]
+
+# set False to skip model training
+train: True
+
+# evaluate on test set, using best model weights achieved during training
+# lightning chooses best weights based on the metric specified in checkpoint callback
+test: False
+
+# simply provide checkpoint path to resume training
+ckpt_path: null
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: null
+
+# LoRA specific configuration
+lora:
+  # LoRA rank - controls the bottleneck size
+  rank: 4
+  
+  # LoRA alpha - scaling factor
+  alpha: 1.0
+  
+  # LoRA dropout rate
+  dropout: 0.0
+  
+  # Target modules for LoRA adaptation
+  target_modules:
+    backbone:
+      - "qkv"      # Attention QKV projection
+      - "proj"     # Attention output projection  
+      - "fc1"      # MLP first layer
+      - "fc2"      # MLP second layer
+    mano_head:
+      - "to_qkv"   # Transformer attention QKV
+      - "to_out"   # Transformer attention output
+      - "to_kv"    # Cross-attention KV
+      - "to_q"     # Cross-attention Q
+      - "decpose"  # Pose decoder
+      - "decshape" # Shape decoder
+      - "deccam"   # Camera decoder
+    discriminator:
+      - "D_conv1"         # Discriminator conv layers
+      - "D_conv2"
+      - "betas_fc1"       # Beta processing layers
+      - "betas_fc2"
+      - "D_alljoints_fc1" # Joint processing layers
+      - "D_alljoints_fc2"
+  
+  # Pre-trained model path to load before applying LoRA
+  pretrained_model_path: null
+  
+  # Whether to save LoRA weights separately
+  save_lora_separately: True
+  
+  # LoRA checkpoint saving interval
+  save_interval: 1000
+
+# Override some training settings for LoRA
+TRAIN:
+  LR: 1e-4  # Lower learning rate for fine-tuning
+  WEIGHT_DECAY: 0.01
+  GRAD_CLIP_VAL: 1.0
+
+GENERAL:
+  LOG_STEPS: 100
+  CHECKPOINT_STEPS: 1000
+  CHECKPOINT_SAVE_TOP_K: 3
+  VAL_STEPS: 500  # Validation frequency
+  TOTAL_STEPS: 10000  # Total training steps
+
+# Paths
+paths:
+  output_dir: ${hydra:runtime.cwd}/logs/lora_runs/${now:%Y-%m-%d_%H-%M-%S}
+  log_dir: ${paths.output_dir}/logs/
+  data_dir: ${hydra:runtime.cwd}/_DATA/
+  work_dir: ${hydra:runtime.cwd}
+
+# use `python train_lora.py debug=true` for easy debugging
+debug: False

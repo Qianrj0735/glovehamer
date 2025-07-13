@@ -152,3 +152,4 @@ dmypy.json
 /data/
 
 *.zip
+gloved*

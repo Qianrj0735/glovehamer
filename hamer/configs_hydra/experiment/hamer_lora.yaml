@@ -1,0 +1,105 @@
+# @package _global_
+
+# LoRA experiment configuration
+# Use this with: python train_lora.py experiment=hamer_lora
+
+defaults:
+  - override /data: mix_all.yaml
+  - override /model: hamer_vit_transformer.yaml
+  - override /trainer: gpu.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["lora", "hamer", "efficient_training"]
+
+# LoRA configuration
+lora:
+  rank: 8  # Higher rank for better performance
+  alpha: 16.0  # alpha = 2 * rank is a good default
+  dropout: 0.1
+  
+  target_modules:
+    backbone:
+      - "qkv"
+      - "proj" 
+      - "fc1"
+      - "fc2"
+    mano_head:
+      - "to_qkv"
+      - "to_out"
+      - "to_kv"
+      - "to_q"
+      - "decpose"
+      - "decshape"
+      - "deccam"
+    discriminator:
+      - "D_conv1"
+      - "D_conv2"
+      - "betas_fc1"
+      - "betas_fc2"
+      - "D_alljoints_fc1"
+      - "D_alljoints_fc2"
+
+# Training overrides for LoRA
+TRAIN:
+  LR: 5e-5  # Conservative learning rate
+  WEIGHT_DECAY: 0.01
+  GRAD_CLIP_VAL: 1.0
+
+# Logging
+GENERAL:
+  LOG_STEPS: 50
+  CHECKPOINT_STEPS: 500
+  CHECKPOINT_SAVE_TOP_K: 5
+
+# Model settings
+MODEL:
+  BACKBONE:
+    TYPE: 'vit'
+    PRETRAINED_WEIGHTS: null
+
+# Trainer settings
+trainer:
+  max_epochs: 20
+  accumulate_grad_batches: 4  # Effective batch size increase
+  precision: 16  # Mixed precision for memory efficiency
+  gradient_clip_val: ${TRAIN.GRAD_CLIP_VAL}
+
+# Optimizer settings will be handled by the LoRA model
+
+# Callbacks
+callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: "lora_epoch_{epoch:03d}"
+    monitor: "train/loss"
+    verbose: False
+    save_last: True
+    save_top_k: 3
+    mode: "min"
+    auto_insert_metric_name: False
+    save_on_train_epoch_end: True
+    every_n_train_steps: ${GENERAL.CHECKPOINT_STEPS}
+
+  early_stopping:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: "train/loss"
+    min_delta: 0.001
+    patience: 5
+    verbose: False
+    mode: "min"
+
+  rich_progress_bar:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+
+# Logger
+logger:
+  tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: "${paths.output_dir}/tensorboard/"
+    name: null
+    log_graph: False
+    default_hp_metric: False
+    prefix: ""
